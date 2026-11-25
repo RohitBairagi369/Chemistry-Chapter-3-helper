@@ -1,0 +1,208 @@
+import type { QuizQuestion } from '../types/chemistry';
+
+export const QUIZ_QUESTIONS: QuizQuestion[] = [
+  {
+    id: 'q-xef6-hyb',
+    category: 'exceptions',
+    difficulty: 'Board Exam',
+    prompt: 'What is the hybridization state and molecular shape of Xenon hexafluoride (XeF₆)?',
+    formulaTag: 'XeF₆ (Z = 54)',
+    options: [
+      'sp³d², Regular Octahedral',
+      'sp³d³, Distorted Octahedral (Capped)',
+      'sp³d³, Pentagonal Bipyramidal',
+      'sp³d, Trigonal Bipyramidal',
+    ],
+    correctIndex: 1,
+    explanation:
+      'For XeF₆, H = ½(8 + 6) = 7 ⇒ sp³d³ hybridization (6 bond pairs + 1 lone pair). Because of the 1 lone pair projecting onto an octahedral face, its molecular shape is Distorted Octahedral (not regular octahedral).',
+    relatedMoleculeId: 'xef6',
+  },
+  {
+    id: 'q-ch4-nh3-h2o',
+    category: 'angles',
+    difficulty: 'Board Exam',
+    prompt: 'Why does the bond angle decrease in the order CH₄ (109.5°) > NH₃ (107°) > H₂O (104.5°)?',
+    formulaTag: 'sp³ VSEPR Trio',
+    options: [
+      'The hybridization changes from sp³ to sp² to sp',
+      'Atomic radius decreases from C to N to O',
+      'The number of lone pairs increases (0 → 1 → 2), increasing LP–BP and LP–LP repulsion',
+      'Hydrogen atoms attract each other more strongly in water',
+    ],
+    correctIndex: 2,
+    explanation:
+      'All three molecules have sp³ hybridization. However, CH₄ has 0 LP, NH₃ has 1 LP, and H₂O has 2 LP. Since LP–LP > LP–BP > BP–BP repulsion, each additional lone pair compresses the remaining bond angles.',
+    relatedMoleculeId: 'h2o',
+  },
+  {
+    id: 'q-nh4-angle',
+    category: 'angles',
+    difficulty: 'Standard',
+    prompt: 'When NH₃ forms the ammonium ion (NH₄⁺), what happens to the H–N–H bond angle?',
+    formulaTag: 'NH₃ → NH₄⁺',
+    options: [
+      'Decreases from 107° to 104.5°',
+      'Increases from 107° to 109.5°',
+      'Increases from 107° to 120°',
+      'Remains unchanged at 107°',
+    ],
+    correctIndex: 1,
+    explanation:
+      'Nitrogen donates its lone pair to H⁺ to form a coordinate covalent bond. Now NH₄⁺ has 4 bond pairs and 0 lone pairs, restoring full tetrahedral symmetry and expanding the angle to 109.5°.',
+    relatedMoleculeId: 'nh4_plus',
+  },
+  {
+    id: 'q-formula-co2',
+    category: 'formula',
+    difficulty: 'Board Exam',
+    prompt: 'Using H = ½(V + M − C + A), what is the correct value of M when calculating the hybridization of Carbon in CO₂?',
+    formulaTag: 'CO₂',
+    options: [
+      'M = 2 (two oxygen atoms)',
+      'M = 4 (two double bonds)',
+      'M = 0 (oxygen is divalent, not monovalent)',
+      'M = 1 (one central carbon)',
+    ],
+    correctIndex: 2,
+    explanation:
+      'In the formula H = ½(V + M − C + A), M counts ONLY monovalent atoms (H, F, Cl, Br, I). Divalent atoms like O and S contribute 0 to M. Thus for CO₂, H = ½(4 + 0) = 2 (sp, 180°).',
+    relatedMoleculeId: 'co2',
+  },
+  {
+    id: 'q-pcl5-angles',
+    category: 'angles',
+    difficulty: 'Board Exam',
+    prompt: 'Which set of bond angles is present in Phosphorus pentachloride (PCl₅)?',
+    formulaTag: 'PCl₅ (sp³d)',
+    options: [
+      '90° and 109.5°',
+      '72° and 90°',
+      '90° and 120°',
+      '109.5° and 120°',
+    ],
+    correctIndex: 2,
+    explanation:
+      'PCl₅ is sp³d hybridized with a Trigonal Bipyramidal geometry: three equatorial Cl atoms lie in a plane at 120° to each other, and two axial Cl atoms sit perpendicular to that plane at 90°.',
+    relatedMoleculeId: 'pcl5',
+  },
+  {
+    id: 'q-xef4-shape',
+    category: 'exceptions',
+    difficulty: 'Board Exam',
+    prompt: 'Although both CH₄ and XeF₄ have 4 bonded atoms around the central atom, what is the hybridization and shape of XeF₄?',
+    formulaTag: 'XeF₄',
+    options: [
+      'sp³, Tetrahedral (109.5°)',
+      'sp³d², Square Planar (90°)',
+      'sp³d, Seesaw (101.6°)',
+      'sp³, Square Planar (90°)',
+    ],
+    correctIndex: 1,
+    explanation:
+      'Xe has 8 valence electrons. With 4 F atoms, H = ½(8 + 4) = 6 ⇒ sp³d² hybridization (4 BP + 2 LP). The 2 lone pairs occupy opposite axial sites, leaving a Square Planar molecule with 90° bond angles.',
+    relatedMoleculeId: 'xef4',
+  },
+  {
+    id: 'q-if7-angles',
+    category: 'angles',
+    difficulty: 'Standard',
+    prompt: 'What are the equatorial and axial F–I–F bond angles in Iodine heptafluoride (IF₇)?',
+    formulaTag: 'IF₇ (sp³d³)',
+    options: [
+      '60° equatorial and 90° axial',
+      '72° equatorial and 90° axial',
+      '90° equatorial and 120° axial',
+      '72° equatorial and 109.5° axial',
+    ],
+    correctIndex: 1,
+    explanation:
+      'IF₇ has sp³d³ hybridization (7 BP, 0 LP) with Pentagonal Bipyramidal geometry. The 5 equatorial F atoms form a regular pentagon (360°/5 = 72°), while the 2 axial F atoms sit at 90°.',
+    relatedMoleculeId: 'if7',
+  },
+  {
+    id: 'q-bf3-nh3',
+    category: 'formula',
+    difficulty: 'Board Exam',
+    prompt: 'When BF₃ reacts with NH₃ to form the adduct H₃N→BF₃, how does the hybridization of Boron change?',
+    formulaTag: 'NH₃ + BF₃ → H₃N→BF₃',
+    options: [
+      'sp → sp²',
+      'sp² → sp³',
+      'sp³ → sp³d',
+      'Remains sp²',
+    ],
+    correctIndex: 1,
+    explanation:
+      'In BF₃, Boron is sp² hybridized (120°) with an empty 2pz orbital. Accepting NH₃’s lone pair gives Boron 4 bond pairs, changing its hybridization to sp³ (tetrahedral, ~109.5°).',
+    relatedMoleculeId: 'bf3',
+  },
+  {
+    id: 'q-c2h2-bonds',
+    category: 'formula',
+    difficulty: 'Standard',
+    prompt: 'In Ethyne (C₂H₂), what is the hybridization of each Carbon atom and how many σ and π bonds exist in the molecule?',
+    formulaTag: 'H–C≡C–H',
+    options: [
+      'sp², 4 σ-bonds and 1 π-bond',
+      'sp, 3 σ-bonds and 2 π-bonds',
+      'sp, 2 σ-bonds and 3 π-bonds',
+      'sp³, 3 σ-bonds and 2 π-bonds',
+    ],
+    correctIndex: 1,
+    explanation:
+      'Each carbon in C₂H₂ is sp hybridized (180°, linear). The molecule contains 2 C–H σ-bonds + 1 C–C σ-bond (3 σ total) and 2 C≡C π-bonds.',
+    relatedMoleculeId: 'c2h2',
+  },
+  {
+    id: 'q-sf4-lp-pos',
+    category: 'exceptions',
+    difficulty: 'Challenge',
+    prompt: 'In SF₄ (sp³d, Seesaw), why does the single lone pair occupy an equatorial position instead of an axial position?',
+    formulaTag: 'SF₄',
+    options: [
+      'Equatorial orbitals have lower s-character',
+      'An equatorial lone pair experiences only two 90° BP repulsions instead of three',
+      'Axial positions cannot hold lone pairs in sulfur',
+      'Fluorine cannot form equatorial bonds',
+    ],
+    correctIndex: 1,
+    explanation:
+      'In trigonal bipyramidal geometry, an equatorial position has only two neighbors at 90° (the two axial bonds), whereas an axial position has three neighbors at 90°. Minimizing 90° LP–BP repulsions forces lone pairs into equatorial sites.',
+    relatedMoleculeId: 'sf4',
+  },
+  {
+    id: 'q-clf3-shape',
+    category: 'exceptions',
+    difficulty: 'Challenge',
+    prompt: 'What is the molecular geometry and F_ax–Cl–F_eq bond angle in Chlorine trifluoride (ClF₃)?',
+    formulaTag: 'ClF₃',
+    options: [
+      'Trigonal Planar, 120°',
+      'Trigonal Pyramidal, 107°',
+      'T-shaped, 87.5°',
+      'Linear, 180°',
+    ],
+    correctIndex: 2,
+    explanation:
+      'ClF₃ has H = ½(7 + 3) = 5 ⇒ sp³d (3 BP + 2 LP). Both lone pairs sit in equatorial sites, leaving a T-shaped molecule whose axial F atoms bend slightly inward to 87.5°.',
+    relatedMoleculeId: 'clf3',
+  },
+  {
+    id: 'q-xef2-angle',
+    category: 'angles',
+    difficulty: 'Standard',
+    prompt: 'XeF₂ has 3 lone pairs on the central Xenon atom. What is its resulting molecular shape and F–Xe–F bond angle?',
+    formulaTag: 'XeF₂',
+    options: [
+      'Bent, 104.5°',
+      'T-shaped, 87.5°',
+      'Linear, 180°',
+      'Trigonal Planar, 120°',
+    ],
+    correctIndex: 2,
+    explanation:
+      'In XeF₂ (sp³d, 2 BP + 3 LP), all three lone pairs occupy the equatorial triangle at 120° to each other, cancelling horizontally and leaving the two axial Xe–F bonds linear at 180°.',
+    relatedMoleculeId: 'xef2',
+  },
+];
