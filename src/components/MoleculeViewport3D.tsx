@@ -14,7 +14,10 @@ import { ELEMENT_STYLES } from '../data/molecules';
 import { formatHybridizationLabel } from '../utils/chemistryMath';
 import {
   computeAtomLabelAnchor,
+  computeBondLabelAnchors,
+  computeBondPiNormals,
   computeMoleculeShapeGeometry,
+  countSigmaAndPiBonds,
   formatAtomBadgeLabel,
 } from '../utils/shapeGeometry';
 import type { AtomNode, MoleculeSpec } from '../types/chemistry';
@@ -28,7 +31,7 @@ type CameraPreset = 'default' | 'top' | 'side';
 interface ProjectedLabelMeta {
   id: string;
   text: string;
-  kind: 'angle' | 'atom-central' | 'atom-ligand' | 'lone-pair';
+  kind: 'angle' | 'atom-central' | 'atom-ligand' | 'lone-pair' | 'bond-sigma' | 'bond-pi';
 }
 
 interface LabelAnchor {
@@ -107,6 +110,7 @@ export const MoleculeViewport3D: React.FC<MoleculeViewport3DProps> = ({
   const mountRef = useRef<HTMLDivElement | null>(null);
   const [showOrbitals, setShowOrbitals] = useState(true);
   const [showLonePairs, setShowLonePairs] = useState(true);
+  const [showSigmaPi, setShowSigmaPi] = useState(true);
   const [showShapeOutline, setShowShapeOutline] = useState(true);
   const [showAngles, setShowAngles] = useState(true);
   const [showLabels, setShowLabels] = useState(true);
@@ -124,6 +128,11 @@ export const MoleculeViewport3D: React.FC<MoleculeViewport3DProps> = ({
 
   const shapeGeom = React.useMemo(
     () => computeMoleculeShapeGeometry(molecule),
+    [molecule],
+  );
+
+  const bondCounts = React.useMemo(
+    () => countSigmaAndPiBonds(molecule),
     [molecule],
   );
 
@@ -155,9 +164,18 @@ export const MoleculeViewport3D: React.FC<MoleculeViewport3DProps> = ({
           });
         }
       }
+      if (showSigmaPi) {
+        for (const bLbl of computeBondLabelAnchors(molecule)) {
+          items.push({
+            id: bLbl.id,
+            text: bLbl.text,
+            kind: bLbl.isPiBond ? 'bond-pi' : 'bond-sigma',
+          });
+        }
+      }
     }
     return items;
-  }, [molecule, showAngles, showLabels, showLonePairs]);
+  }, [molecule, showAngles, showLabels, showLonePairs, showSigmaPi]);
 
   const labelDomRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
@@ -166,6 +184,7 @@ export const MoleculeViewport3D: React.FC<MoleculeViewport3DProps> = ({
     molecule,
     showOrbitals,
     showLonePairs,
+    showSigmaPi,
     showShapeOutline,
     showAngles,
     showLabels,
@@ -184,6 +203,7 @@ export const MoleculeViewport3D: React.FC<MoleculeViewport3DProps> = ({
   stateRef.current.molecule = molecule;
   stateRef.current.showOrbitals = showOrbitals;
   stateRef.current.showLonePairs = showLonePairs;
+  stateRef.current.showSigmaPi = showSigmaPi;
   stateRef.current.showShapeOutline = showShapeOutline;
   stateRef.current.showAngles = showAngles;
   stateRef.current.showLabels = showLabels;
@@ -284,10 +304,14 @@ export const MoleculeViewport3D: React.FC<MoleculeViewport3DProps> = ({
 
     const orbitalsGroup = new THREE.Group();
     const lonePairsGroup = new THREE.Group();
+    const piBondsGroup = new THREE.Group();
+    const neutralMultiGroup = new THREE.Group();
     const shapeGroup = new THREE.Group();
     const anglesGroup = new THREE.Group();
     moleculeRoot.add(orbitalsGroup);
     moleculeRoot.add(lonePairsGroup);
+    moleculeRoot.add(piBondsGroup);
+    moleculeRoot.add(neutralMultiGroup);
     moleculeRoot.add(shapeGroup);
     moleculeRoot.add(anglesGroup);
 
@@ -313,6 +337,34 @@ export const MoleculeViewport3D: React.FC<MoleculeViewport3DProps> = ({
       color: 0xcbd5e1,
       roughness: 0.35,
       metalness: 0.25,
+    });
+
+    const sigmaBondMat = new THREE.MeshStandardMaterial({
+      color: 0x38bdf8,
+      emissive: 0x0369a1,
+      emissiveIntensity: 0.25,
+      roughness: 0.28,
+      metalness: 0.3,
+    });
+
+    const piBridgeMat = new THREE.MeshStandardMaterial({
+      color: 0xfb7185,
+      emissive: 0xe11d48,
+      emissiveIntensity: 0.3,
+      roughness: 0.25,
+      metalness: 0.2,
+    });
+
+    const piCloudMat = new THREE.MeshPhysicalMaterial({
+      color: 0xf43f5e,
+      emissive: 0xe11d48,
+      emissiveIntensity: 0.25,
+      roughness: 0.18,
+      metalness: 0.05,
+      transparent: true,
+      opacity: 0.32,
+      depthWrite: false,
+      side: THREE.DoubleSide,
     });
 
     const orbitalMat = new THREE.MeshPhysicalMaterial({
@@ -383,6 +435,8 @@ export const MoleculeViewport3D: React.FC<MoleculeViewport3DProps> = ({
         (c) =>
           c !== orbitalsGroup &&
           c !== lonePairsGroup &&
+          c !== piBondsGroup &&
+          c !== neutralMultiGroup &&
           c !== shapeGroup &&
           c !== anglesGroup,
       );
@@ -390,7 +444,14 @@ export const MoleculeViewport3D: React.FC<MoleculeViewport3DProps> = ({
         moleculeRoot.remove(c);
         disposeObject3D(c);
       });
-      [orbitalsGroup, lonePairsGroup, shapeGroup, anglesGroup].forEach((grp) => {
+      [
+        orbitalsGroup,
+        lonePairsGroup,
+        piBondsGroup,
+        neutralMultiGroup,
+        shapeGroup,
+        anglesGroup,
+      ].forEach((grp) => {
         while (grp.children.length > 0) {
           const ch = grp.children[0];
           grp.remove(ch);
@@ -481,8 +542,9 @@ export const MoleculeViewport3D: React.FC<MoleculeViewport3DProps> = ({
         });
       });
 
-      // 2. Build composite Bonds (Cylinder(s) + Junction Collars)
-      mol.bonds.forEach((bond) => {
+      // 2. Build composite Bonds (Coaxial σ core + sideways π bridges & p-overlap clouds)
+      const piLobeGeo = new THREE.SphereGeometry(1, 20, 14);
+      mol.bonds.forEach((bond, bondIdx) => {
         const a = atomMap.get(bond.from);
         const b = atomMap.get(bond.to);
         if (!a || !b) return;
@@ -502,27 +564,17 @@ export const MoleculeViewport3D: React.FC<MoleculeViewport3DProps> = ({
         const rB = ELEMENT_STYLES[b.element].radius * 0.72;
         const rodLen = Math.max(0.2, dist - (rA + rB) * 0.55);
 
-        const offsets: number[] =
-          bond.order === 1
-            ? [0]
-            : bond.order === 2
-              ? [-0.085, 0.085]
-              : [-0.11, 0, 0.11];
-
-        const rodRadius = bond.order === 1 ? 0.075 : bond.order === 2 ? 0.048 : 0.038;
-
-        offsets.forEach((ox) => {
-          const cylGeo = new THREE.CylinderGeometry(rodRadius, rodRadius, rodLen, 16);
-          const cylMesh = new THREE.Mesh(cylGeo, bondMat);
-          cylMesh.position.x = ox;
-          cylMesh.castShadow = !isSoftwareGl;
-          bondGroup.add(cylMesh);
-        });
+        // Coaxial head-on σ bond cylinder (always present at center axis)
+        const sigmaRadius = bond.order === 1 ? 0.075 : 0.062;
+        const sigmaGeo = new THREE.CylinderGeometry(sigmaRadius, sigmaRadius, rodLen, 16);
+        const sigmaMesh = new THREE.Mesh(sigmaGeo, sigmaBondMat);
+        sigmaMesh.castShadow = !isSoftwareGl;
+        bondGroup.add(sigmaMesh);
 
         // Metallic junction collars
         const collarGeo = new THREE.CylinderGeometry(
-          rodRadius * 1.45,
-          rodRadius * 1.45,
+          sigmaRadius * 1.45,
+          sigmaRadius * 1.45,
           0.08,
           16,
         );
@@ -533,7 +585,92 @@ export const MoleculeViewport3D: React.FC<MoleculeViewport3DProps> = ({
         bondGroup.add(collarTop, collarBot);
 
         moleculeRoot.add(bondGroup);
+
+        // Neutral structural extra cylinders (shown only when σ/π mode is toggled OFF)
+        if (bond.order > 1) {
+          const neutralBondGroup = new THREE.Group();
+          neutralBondGroup.position.copy(_vMid);
+          neutralBondGroup.quaternion.copy(_quat);
+          const sideOffsets = bond.order === 2 ? [-0.11, 0.11] : [-0.12, 0.12];
+          sideOffsets.forEach((ox) => {
+            const sideGeo = new THREE.CylinderGeometry(0.042, 0.042, rodLen, 14);
+            const sideMesh = new THREE.Mesh(sideGeo, bondMat);
+            sideMesh.position.x = ox;
+            neutralBondGroup.add(sideMesh);
+          });
+          neutralMultiGroup.add(neutralBondGroup);
+
+          // Sideways π-bond bridges + translucent lateral p-orbital overlap clouds
+          const piNormals = computeBondPiNormals(
+            mol.id,
+            bondIdx,
+            bond.order,
+            a.position,
+            b.position,
+          );
+          const invBondQuat = _quat.clone().invert();
+          const piBridgeRadius = bond.order === 2 ? 0.036 : 0.03;
+
+          piNormals.forEach((worldNormal) => {
+            const localNormal = new THREE.Vector3(...worldNormal)
+              .applyQuaternion(invBondQuat)
+              .normalize();
+            // Project cleanly onto bond local XZ plane
+            localNormal.y = 0;
+            if (localNormal.lengthSq() < 1e-4) {
+              localNormal.set(0, 0, 1);
+            } else {
+              localNormal.normalize();
+            }
+
+            const piPairGroup = new THREE.Group();
+            piPairGroup.position.copy(_vMid);
+            piPairGroup.quaternion.copy(_quat);
+
+            const planeAlign = new THREE.Quaternion().setFromUnitVectors(
+              new THREE.Vector3(0, 0, 1),
+              localNormal,
+            );
+            const orientedGroup = new THREE.Group();
+            orientedGroup.quaternion.copy(planeAlign);
+
+            [-1, 1].forEach((sign) => {
+              // Parallel π-bridge cylinder flanking the σ axis
+              const bridgeGeo = new THREE.CylinderGeometry(
+                piBridgeRadius,
+                piBridgeRadius,
+                rodLen * 0.94,
+                14,
+              );
+              const bridgeMesh = new THREE.Mesh(bridgeGeo, piBridgeMat);
+              bridgeMesh.position.z = sign * 0.16;
+              orientedGroup.add(bridgeMesh);
+
+              // Translucent sideways π-electron overlap cloud lobe
+              const cloudMesh = new THREE.Mesh(piLobeGeo.clone(), piCloudMat);
+              cloudMesh.position.z = sign * 0.30;
+              cloudMesh.scale.set(0.22, rodLen * 0.56, 0.14);
+              cloudMesh.renderOrder = 3;
+              orientedGroup.add(cloudMesh);
+            });
+
+            piPairGroup.add(orientedGroup);
+            piBondsGroup.add(piPairGroup);
+          });
+        }
       });
+      piLobeGeo.dispose();
+
+      // Add projected σ / π bond label anchors
+      for (const bAnchor of computeBondLabelAnchors(mol)) {
+        labelAnchors.push({
+          id: bAnchor.id,
+          kind: bAnchor.isPiBond ? 'bond-pi' : 'bond-sigma',
+          basePos: new THREE.Vector3(...bAnchor.position),
+          explodeDir: new THREE.Vector3(),
+          explodeWeight: 0,
+        });
+      }
 
       // 3. Build Hybrid Orbital Lobes along bond directions from central atom(s)
       const centralAtoms = mol.atoms.filter((a) => a.isCentral);
@@ -750,8 +887,20 @@ export const MoleculeViewport3D: React.FC<MoleculeViewport3DProps> = ({
     function updateToggles() {
       orbitalsGroup.visible = stateRef.current.showOrbitals;
       lonePairsGroup.visible = stateRef.current.showLonePairs;
+      piBondsGroup.visible = stateRef.current.showSigmaPi;
+      neutralMultiGroup.visible = !stateRef.current.showSigmaPi;
       shapeGroup.visible = stateRef.current.showShapeOutline;
       anglesGroup.visible = stateRef.current.showAngles;
+
+      if (stateRef.current.showSigmaPi) {
+        sigmaBondMat.color.setHex(0x38bdf8);
+        sigmaBondMat.emissive.setHex(0x0369a1);
+        sigmaBondMat.emissiveIntensity = 0.25;
+      } else {
+        sigmaBondMat.color.setHex(0xcbd5e1);
+        sigmaBondMat.emissive.setHex(0x000000);
+        sigmaBondMat.emissiveIntensity = 0;
+      }
     }
 
     function projectAllLabels() {
@@ -983,6 +1132,9 @@ export const MoleculeViewport3D: React.FC<MoleculeViewport3DProps> = ({
       envRT.dispose();
       collarMat.dispose();
       bondMat.dispose();
+      sigmaBondMat.dispose();
+      piBridgeMat.dispose();
+      piCloudMat.dispose();
       orbitalMat.dispose();
       lonePairMat.dispose();
       electronDotMat.dispose();
@@ -1007,7 +1159,7 @@ export const MoleculeViewport3D: React.FC<MoleculeViewport3DProps> = ({
   // Sync visual toggles & explode factor
   useEffect(() => {
     engineRef.current?.updateToggles();
-  }, [showOrbitals, showLonePairs, showShapeOutline, showAngles, showLabels]);
+  }, [showOrbitals, showLonePairs, showSigmaPi, showShapeOutline, showAngles, showLabels]);
 
   useEffect(() => {
     engineRef.current?.requestRender();
@@ -1034,16 +1186,20 @@ export const MoleculeViewport3D: React.FC<MoleculeViewport3DProps> = ({
       {/* Dedicated WebGL mount container */}
       <div ref={mountRef} className="w-full h-full" />
 
-      {/* Projected 3D Labels (Atoms, Lone Pairs, Bond Angles) — positioned directly via refs for zero re-render overhead */}
+      {/* Projected 3D Labels (Atoms, Lone Pairs, Bond Angles, σ/π Bonds) — positioned directly via refs for zero re-render overhead */}
       {labelItems.map((lbl) => {
         const badgeStyle =
           lbl.kind === 'angle'
             ? 'px-2 py-0.5 rounded bg-slate-900/92 border border-sky-400/60 text-sky-200 text-xs font-mono font-medium tabular-nums shadow-sm'
-            : lbl.kind === 'lone-pair'
-              ? 'px-1.5 py-0.5 rounded bg-amber-950/92 border border-amber-400/65 text-amber-200 text-[11px] font-mono font-semibold shadow-sm'
-              : lbl.kind === 'atom-central'
-                ? 'px-1.5 py-0.5 rounded bg-slate-950/95 border border-slate-300/80 text-white text-xs font-mono font-bold shadow-sm'
-                : 'px-1.5 py-0.5 rounded bg-slate-900/92 border border-slate-500/75 text-slate-100 text-[11px] font-mono font-semibold shadow-sm';
+            : lbl.kind === 'bond-pi'
+              ? 'px-2 py-0.5 rounded bg-rose-950/92 border border-rose-400/75 text-rose-200 text-[11px] font-mono font-semibold shadow-sm'
+              : lbl.kind === 'bond-sigma'
+                ? 'px-1.5 py-0.5 rounded bg-sky-950/92 border border-sky-400/70 text-sky-200 text-[11px] font-mono font-semibold shadow-sm'
+                : lbl.kind === 'lone-pair'
+                  ? 'px-1.5 py-0.5 rounded bg-amber-950/92 border border-amber-400/65 text-amber-200 text-[11px] font-mono font-semibold shadow-sm'
+                  : lbl.kind === 'atom-central'
+                    ? 'px-1.5 py-0.5 rounded bg-slate-950/95 border border-slate-300/80 text-white text-xs font-mono font-bold shadow-sm'
+                    : 'px-1.5 py-0.5 rounded bg-slate-900/92 border border-slate-500/75 text-slate-100 text-[11px] font-mono font-semibold shadow-sm';
 
         return (
           <div
@@ -1083,6 +1239,10 @@ export const MoleculeViewport3D: React.FC<MoleculeViewport3DProps> = ({
             <span>{molecule.molecularShape}</span>
             <span aria-hidden="true">·</span>
             <span className="font-mono text-amber-300">{molecule.angleSummary}</span>
+            <span aria-hidden="true">·</span>
+            <span className="font-mono text-rose-300">
+              {bondCounts.sigmaCount} σ / {bondCounts.piCount} π
+            </span>
           </div>
           {selectedAtom && (
             <div className="mt-1.5 pt-1.5 border-t border-slate-700/80 text-xs text-sky-200 flex items-center justify-between gap-3">
@@ -1106,11 +1266,19 @@ export const MoleculeViewport3D: React.FC<MoleculeViewport3DProps> = ({
         <div className="hidden sm:flex flex-col gap-1 bg-slate-900/92 border border-slate-700/80 rounded-lg px-3 py-2 text-xs text-slate-300">
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-sm bg-sky-400/70 border border-sky-300" />
-            <span>Hybrid Orbital (σ)</span>
+            <span>Hybrid Orbital (sp/d)</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-sm bg-amber-400/80 border border-amber-300" />
             <span>Lone Pair (LP e⁻)</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-1 rounded-full bg-sky-400" />
+            <span>σ Bond (Head-on · {bondCounts.sigmaCount})</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-sm bg-rose-500/70 border border-rose-300" />
+            <span>π Bond (Sideways p · {bondCounts.piCount})</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-0 border-t-2 border-dashed border-indigo-300" />
@@ -1175,6 +1343,18 @@ export const MoleculeViewport3D: React.FC<MoleculeViewport3DProps> = ({
                 }`}
               >
                 Lone Pairs ({molecule.lonePairs})
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowSigmaPi((v) => !v)}
+                aria-pressed={showSigmaPi}
+                className={`px-2 py-1 rounded-md font-medium transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                  showSigmaPi
+                    ? 'bg-rose-600 text-white'
+                    : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                }`}
+              >
+                σ / π Bonds
               </button>
               <button
                 type="button"

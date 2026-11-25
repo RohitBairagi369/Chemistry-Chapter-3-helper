@@ -4,6 +4,7 @@ import {
   filterMolecules,
   formatHybridizationLabel,
 } from '../utils/chemistryMath';
+import { countSigmaAndPiBonds } from '../utils/shapeGeometry';
 import type {
   HybridizationType,
   MoleculeSpec,
@@ -57,6 +58,7 @@ export const SyllabusInspector: React.FC<SyllabusInspectorProps> = ({
 
   const filtered = filterMolecules(molecules, hybFilter, searchQuery);
   const fb = activeMolecule.formulaBreakdown;
+  const bondCounts = countSigmaAndPiBonds(activeMolecule);
 
   return (
     <aside className="w-full lg:h-full bg-white border border-slate-200 rounded-xl flex flex-col overflow-hidden">
@@ -196,9 +198,16 @@ export const SyllabusInspector: React.FC<SyllabusInspectorProps> = ({
               </div>
             </div>
             <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200">
-              <div className="text-xs text-slate-500">Electron Pairs</div>
+              <div className="text-xs text-slate-500">Pairs &amp; Bonds</div>
               <div className="mt-0.5 text-sm font-mono font-medium text-slate-900 tabular-nums">
                 {activeMolecule.bondPairs} BP · {activeMolecule.lonePairs} LP
+              </div>
+              <div className="mt-0.5 text-xs font-mono tabular-nums text-slate-600">
+                <span className="text-sky-700 font-semibold">{bondCounts.sigmaCount} σ</span>
+                {' · '}
+                <span className={bondCounts.piCount > 0 ? 'text-rose-600 font-semibold' : 'text-slate-500'}>
+                  {bondCounts.piCount} π
+                </span>
               </div>
             </div>
           </div>

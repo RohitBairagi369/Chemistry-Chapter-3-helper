@@ -310,3 +310,124 @@ export function computeAtomLabelAnchor(atom: AtomNode, radius: number): Vec3Tupl
     z + (z / len) * offset,
   ];
 }
+
+export interface SigmaPiSummary {
+  sigmaCount: number;
+  piCount: number;
+}
+
+export function countSigmaAndPiBonds(mol: MoleculeSpec): SigmaPiSummary {
+  let sigmaCount = 0;
+  let piCount = 0;
+  for (const bond of mol.bonds) {
+    sigmaCount += 1;
+    piCount += Math.max(0, bond.order - 1);
+  }
+  return { sigmaCount, piCount };
+}
+
+/**
+ * Returns unit normal vector(s) perpendicular to the bond axis representing
+ * the orientation plane(s) of unhybridized p/d pi-overlap lobes.
+ */
+export function computeBondPiNormals(
+  molId: string,
+  bondIndex: number,
+  order: 1 | 2 | 3,
+  fromPos: Vec3Tuple,
+  toPos: Vec3Tuple,
+): Vec3Tuple[] {
+  if (order === 1) return [];
+
+  const dx = toPos[0] - fromPos[0];
+  const dy = toPos[1] - fromPos[1];
+  const dz = toPos[2] - fromPos[2];
+  const len = Math.hypot(dx, dy, dz) || 1;
+  const ux = dx / len;
+  const uy = dy / len;
+  const uz = dz / len;
+
+  // Build two orthonormal vectors perpendicular to bond axis u
+  const ref: Vec3Tuple = Math.abs(uz) < 0.9 ? [0, 0, 1] : [0, 1, 0];
+  // n1 = normalize(u x ref)
+  let n1x = uy * ref[2] - uz * ref[1];
+  let n1y = uz * ref[0] - ux * ref[2];
+  let n1z = ux * ref[1] - uy * ref[0];
+  const n1Len = Math.hypot(n1x, n1y, n1z) || 1;
+  n1x /= n1Len;
+  n1y /= n1Len;
+  n1z /= n1Len;
+
+  // n2 = u x n1
+  const n2x = uy * n1z - uz * n1y;
+  const n2y = uz * n1x - ux * n1z;
+  const n2z = ux * n1y - uy * n1x;
+
+  // For planar XY molecules (C2H4, SO2), unhybridized 2pz pi cloud is strictly along Z ([0, 0, 1])
+  if (molId === 'c2h4' || molId === 'so2') {
+    return [[0, 0, 1]];
+  }
+
+  // For CO2 (linear along X), the two C=O pi bonds are mutually perpendicular (2py and 2pz)
+  if (molId === 'co2') {
+    return bondIndex % 2 === 0 ? [[0, 1, 0]] : [[0, 0, 1]];
+  }
+
+  if (order === 2) {
+    return [[n1x, n1y, n1z]];
+  }
+
+  // Triple bond (order === 3, e.g. C2H2): two perpendicular pi planes
+  return [
+    [n1x, n1y, n1z],
+    [n2x, n2y, n2z],
+  ];
+}
+
+export interface BondLabelAnchorSpec {
+  id: string;
+  text: string;
+  position: Vec3Tuple;
+  isPiBond: boolean;
+}
+
+export function computeBondLabelAnchors(mol: MoleculeSpec): BondLabelAnchorSpec[] {
+  const atomMap = new Map(mol.atoms.map((a) => [a.id, a]));
+  const hasMultipleBonds = mol.bonds.some((b) => b.order > 1);
+  const anchors: BondLabelAnchorSpec[] = [];
+  let singleLabeled = false;
+
+  mol.bonds.forEach((bond, idx) => {
+    const a = atomMap.get(bond.from);
+    const b = atomMap.get(bond.to);
+    if (!a || !b) return;
+
+    const isPi = bond.order > 1;
+    // Label every multiple bond, plus one representative single sigma bond
+    if (!isPi && singleLabeled) return;
+    if (!isPi) singleLabeled = true;
+
+    const midX = (a.position[0] + b.position[0]) * 0.5;
+    const midY = (a.position[1] + b.position[1]) * 0.5;
+    const midZ = (a.position[2] + b.position[2]) * 0.5;
+
+    // Slight perpendicular lift so the badge sits cleanly beside the bond cylinder
+    const offsetY = isPi ? 0.42 : hasMultipleBonds ? -0.24 : 0.22;
+    const text =
+      bond.order === 1
+        ? 'σ'
+        : bond.order === 2
+          ? '1σ + 1π'
+          : '1σ + 2π';
+
+    anchors.push({
+      id: `bond:${idx}`,
+      text,
+      position: [midX, midY + offsetY, midZ],
+      isPiBond: isPi,
+    });
+  });
+
+  return anchors;
+}
+
